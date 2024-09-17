@@ -10,7 +10,10 @@ class LocationAdmin(UserAdmin):
     description = "Пользователи"
     fieldsets = (
         (None, {"fields": ('username', 'password',)}),
-        ("Личная информация", {"fields": ('first_name', 'last_name', 'email', 'bio')}),
+        ("Личная информация", {
+            "fields": (
+                'first_name', 'last_name', 'email', 'bio'
+            )}),
         (
             "Разрешения",
             {
