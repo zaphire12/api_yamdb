@@ -19,7 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
     def validate_username(self, username):
-        if username in 'me':
+        if username == 'me':
             raise serializers.ValidationError('Username не может быть "me".')
         return username
 
