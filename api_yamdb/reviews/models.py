@@ -1,8 +1,7 @@
 from django.db import models
 
 from users.models import User
-
-from .validators import validate_year_release
+from reviews.validators import validate_year_release
 
 
 class Categorie(models.Model):
