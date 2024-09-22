@@ -9,6 +9,8 @@ from api.serializers import (
 )
 from reviews.models import Categorie, Genre, Title
 
+ALLOWED_METHODS = ['get', 'post', 'patch', 'delete']
+
 
 class CategorieViewSet(mixins.ListModelMixin,
                        mixins.CreateModelMixin,
@@ -43,8 +45,10 @@ class TitleViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
+    http_method_names = ALLOWED_METHODS
+
 
     def get_serializer_class(self):
-        if self.action in ('list', 'retrieve'):
+        if self.request.method == 'GET':
             return TitleGetSerializer
         return TitleSerializer

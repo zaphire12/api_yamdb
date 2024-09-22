@@ -55,22 +55,20 @@ class Title(models.Model):
     description = models.TextField(
         null=True, blank=True, verbose_name='Описание произведения'
     )
-    category = models.OneToOneField(
+    category = models.ForeignKey(
         Categorie,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='titles',
-        verbose_name='Категория',
-        help_text='Категория, к которому относится произведение'
-    )
-    genre = models.ForeignKey(
-        Genre,
-        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='categories',
+        on_delete=models.SET_NULL,
+        related_name='titles',
+        verbose_name='Категория',
+        help_text='Категория, к которому относиться произведение',
+    )
+    genre = models.ManyToManyField(
+        Genre,
+        through='GenreTitle',
         verbose_name='Жанр',
-        help_text='Жанры, к которым относится произведение'
+        help_text='Жанры, к которым относиться произведение',
     )
 
     class Meta:
@@ -80,3 +78,13 @@ class Title(models.Model):
 
     def __str__(self):
         return f'{self.name}, {self.year}, {self.category}, {self.genre}'
+
+
+class GenreTitle(models.Model):
+    """Модель связи id произведения и id жанра."""
+
+    genre = models.ForeignKey(Genre, on_delete=models.CASCADE)
+    title = models.ForeignKey(Title, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.genre} {self.title}'
