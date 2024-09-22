@@ -1,7 +1,50 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from reviews.models import Category, Genre, Title
+
 User = get_user_model()
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        exclude = ('id',)
+        lookup_field = 'slug'
+
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        exclude = ('id',)
+        lookup_field = 'slug'
+
+
+class TitleGetSerializer(serializers.ModelSerializer):
+    genre = GenreSerializer(many=True)
+    category = CategorySerializer()
+    #rating = serializers.IntegerField()
+
+    class Meta:
+        model = Title
+        fields = '__all__'
+
+
+class TitleSerializer(serializers.ModelSerializer):
+    genre = serializers.SlugRelatedField(
+        queryset=Genre.objects.all(), many=True, slug_field='slug'
+    )
+    category = serializers.SlugRelatedField(
+        queryset=Category.objects.all(), slug_field='slug'
+    )
+
+    class Meta:
+        model = Title
+        fields = '__all__'
+
+    def to_representation(self, title):
+        serializer = TitleGetSerializer(title)
+        return serializer.data
 
 
 class UserSerializer(serializers.ModelSerializer):

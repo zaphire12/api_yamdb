@@ -5,8 +5,16 @@ from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import AccessToken
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, mixins, viewsets
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
-from api.permissions import IsAdmin
+from api.filters import TitleFilter
+from api.permissions import IsAdminOrReadOnly, IsAdmin
+from api.serializers import (
+    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer
+)
+from reviews.models import Category, Genre, Title
 from api.serializers import (UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
@@ -99,3 +107,48 @@ class UserViewSet(mixins.ListModelMixin,
             return Response(serializer.data, status=status.HTTP_200_OK)
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+ALLOWED_METHODS = ['get', 'post', 'patch', 'delete']
+
+
+class CategorieViewSet(mixins.ListModelMixin,
+                       mixins.CreateModelMixin,
+                       mixins.DestroyModelMixin,
+                       viewsets.GenericViewSet):
+    """Получаем/создаем/удаляем категорию."""
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('name',)
+    lookup_field = 'slug'
+
+
+class GenreViewset(mixins.ListModelMixin,
+                   mixins.CreateModelMixin,
+                   mixins.DestroyModelMixin,
+                   viewsets.GenericViewSet):
+    """Получаем/создаем/удаляем жанр."""
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('name',)
+    lookup_field = 'slug'
+
+
+class TitleViewSet(viewsets.ModelViewSet):
+    """Получаем/создаем/удаляем/редактируем произведение."""
+    queryset = Title.objects.all()
+    serializer_class = TitleSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = TitleFilter
+    http_method_names = ALLOWED_METHODS
+
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return TitleGetSerializer
+        return TitleSerializer
