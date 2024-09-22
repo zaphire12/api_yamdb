@@ -4,7 +4,7 @@ from users.models import User
 from reviews.validators import validate_year_release
 
 
-class Categorie(models.Model):
+class Category(models.Model):
     """Категории (типы) произведений."""
 
     name = models.CharField(
@@ -56,7 +56,7 @@ class Title(models.Model):
         null=True, blank=True, verbose_name='Описание произведения'
     )
     category = models.ForeignKey(
-        Categorie,
+        Category,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,

@@ -12,9 +12,9 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from api.filters import TitleFilter
 from api.permissions import IsAdminOrReadOnly, IsAdmin
 from api.serializers import (
-    CategorieSerializer, GenreSerializer, TitleGetSerializer, TitleSerializer
+    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer
 )
-from reviews.models import Categorie, Genre, Title
+from reviews.models import Category, Genre, Title
 from api.serializers import (UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
@@ -117,8 +117,8 @@ class CategorieViewSet(mixins.ListModelMixin,
                        mixins.DestroyModelMixin,
                        viewsets.GenericViewSet):
     """Получаем/создаем/удаляем категорию."""
-    queryset = Categorie.objects.all()
-    serializer_class = CategorieSerializer
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
     permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
