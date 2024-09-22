@@ -10,8 +10,6 @@ v1_router.register('categories', CategorieViewSet, basename='categories')
 v1_router.register('genres', GenreViewset, basename='genres')
 v1_router.register('titles', TitleViewSet, basename='titles')
 
-
-
 v1_urlpatterns = [
     path(
         'auth/signup/',

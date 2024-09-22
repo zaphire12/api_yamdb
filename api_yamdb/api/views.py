@@ -10,12 +10,11 @@ from rest_framework import filters, mixins, viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from api.filters import TitleFilter
-from api.permissions import IsAdminOrReadOnly
+from api.permissions import IsAdminOrReadOnly, IsAdmin
 from api.serializers import (
     CategorieSerializer, GenreSerializer, TitleGetSerializer, TitleSerializer
 )
 from reviews.models import Categorie, Genre, Title
-from api.permissions import IsAdmin
 from api.serializers import (UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
@@ -108,6 +107,7 @@ class UserViewSet(mixins.ListModelMixin,
             return Response(serializer.data, status=status.HTTP_200_OK)
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 ALLOWED_METHODS = ['get', 'post', 'patch', 'delete']
 
