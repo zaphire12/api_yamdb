@@ -8,13 +8,17 @@ from rest_framework_simplejwt.tokens import AccessToken
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.exceptions import PermissionDenied
+
 
 from api.filters import TitleFilter
 from api.permissions import IsAdminOrReadOnly, IsAdmin
 from api.serializers import (
-    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer
+    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer,
+    ReviewSerializer, CommentSerializer
 )
-from reviews.models import Category, Genre, Title
+
+from reviews.models import Category, Genre, Title, Review, Comment
 from api.serializers import (UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
@@ -147,8 +151,55 @@ class TitleViewSet(viewsets.ModelViewSet):
     filterset_class = TitleFilter
     http_method_names = ALLOWED_METHODS
 
-
     def get_serializer_class(self):
         if self.request.method == 'GET':
             return TitleGetSerializer
         return TitleSerializer
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+
+    def get_queryset(self):
+        return self.get_title(self.kwargs['title_id']).reviews.all()
+
+    def get_title(self, title_id):
+        return get_object_or_404(Title, pk=title_id)
+
+    def perform_create(self, serializer):
+        title = self.get_title(self.kwargs['title_id'])
+        serializer.save(author=self.request.user, title=title)
+
+    def perform_update(self, serializer):
+        if self.get_object().author != self.request.user:
+            raise PermissionDenied('У Вас нет прав, '
+                                   'на редактирование.')
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied('У Вас нет прав, '
+                                   'на удаление.')
+        super().perform_destroy(instance)
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
+        if self.get_object().author != self.request.user:
+            raise PermissionDenied('У Вас нет прав, '
+                                   'на редактирование этого комментария.')
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied('У Вас нет прав, '
+                                   'на удаление этого комментария.')
+        super().perform_destroy(instance)

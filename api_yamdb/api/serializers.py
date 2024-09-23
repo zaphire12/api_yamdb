@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from reviews.models import Category, Genre, Title
+from reviews.models import Category, Genre, Title, Review, Comment
 
 User = get_user_model()
 
@@ -23,7 +23,7 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleGetSerializer(serializers.ModelSerializer):
     genre = GenreSerializer(many=True)
     category = CategorySerializer()
-    #rating = serializers.IntegerField()
+    # rating = serializers.IntegerField()
 
     class Meta:
         model = Title
@@ -117,3 +117,16 @@ class UserTokenSerializer(serializers.Serializer):
         max_length=150,
         required=True
     )
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        exclude = ('id',)
+        read_only_fields = ('author', 'title', )
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        exclude = ('id',)

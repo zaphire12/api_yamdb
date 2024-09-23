@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from users.models import User
 from reviews.validators import validate_year_release
@@ -88,3 +89,48 @@ class GenreTitle(models.Model):
 
     def __str__(self):
         return f'{self.genre} {self.title}'
+
+
+class Review(models.Model):
+    """Модель отзыва на произведение."""
+
+    title_id = models.ForeignKey(Title, on_delete=models.CASCADE,
+                                 related_name='reviews')
+    text = models.TextField()
+    score = models.IntegerField(validators=[
+        MinValueValidator(1),
+        MaxValueValidator(10)
+    ])
+    author = models.ForeignKey(User, on_delete=models.CASCADE,
+                               related_name='reviews')
+    pub_date = models.DateTimeField(
+        'Дата отзыва', auto_now_add=True
+    )
+
+    class Meta:
+        ordering = ('pub_date',)
+        verbose_name = 'Отзыв'
+        verbose_name_plural = 'Отзывы'
+
+    def __str__(self):
+        return self.text
+
+
+class Comment(models.Model):
+    """Модель комментария к отзыву на произведение."""
+
+    review_id = models.ForeignKey(Review, on_delete=models.CASCADE,
+                                  related_name='comments')
+    text = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE,
+                               related_name='comments')
+    pub_date = models.DateTimeField(
+        'Дата комментария', auto_now_add=True
+    )
+
+    class Meta:
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
+
+    def __str__(self):
+        return self.text
