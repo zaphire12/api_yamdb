@@ -23,6 +23,7 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleGetSerializer(serializers.ModelSerializer):
     genre = GenreSerializer(many=True)
     category = CategorySerializer()
+    rating = serializers.FloatField(read_only=True)
     # rating = serializers.IntegerField()
 
     class Meta:
@@ -127,11 +128,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = '__all__'
         read_only_fields = ('author', 'title', )
-
-#        def create(self, validated_data):
-#            user = self.context['request'].user
-#            validated_data['author'] = user
-#            return super().create(validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
