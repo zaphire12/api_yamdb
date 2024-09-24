@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from rest_framework.exceptions import ValidationError
 from rest_framework import serializers
 
 from reviews.models import Category, Genre, Title, Review, Comment
@@ -120,13 +121,25 @@ class UserTokenSerializer(serializers.Serializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(read_only=True,
+                                          slug_field='username')
+
     class Meta:
         model = Review
-        exclude = ('id',)
-        read_only_fields = ('author', 'title', )
+        fields = '__all__'
+        read_only_fields = ('author', 'title_id', )
+
+        def create(self, validated_data):
+            user = self.context['request'].user
+            validated_data['author'] = user
+            return super().create(validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(read_only=True,
+                                          slug_field='username')
+
     class Meta:
         model = Comment
-        exclude = ('id',)
+        fields = '__all__'
+        read_only_fields = ('author', 'review_id', )

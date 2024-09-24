@@ -11,11 +11,11 @@ v1_router.register('users', UserViewSet, basename='users')
 v1_router.register('categories', CategorieViewSet, basename='categories')
 v1_router.register('genres', GenreViewset, basename='genres')
 v1_router.register('titles', TitleViewSet, basename='titles')
-v1_router.register('reviews', ReviewViewSet, basename='reviews')
-v1_router.register('comments', CommentViewSet, basename='comments')
-v1_router.register(r'titles/(?P<title_id>[0-9])/reviews',
+# v1_router.register('reviews', ReviewViewSet, basename='reviews')
+# v1_router.register('comments', CommentViewSet, basename='comments')
+v1_router.register(r'titles/(?P<title_id>[0-9]+)/reviews',
                    ReviewViewSet, basename='review_v1')
-v1_router.register(r'titles/(?P<title_id>[0-9])/reviews/(?P<review_id>[0-9])/comments',
+v1_router.register(r'titles/(?P<title_id>[0-9]+)/reviews/(?P<review_id>[0-9]+)/comments',
                    CommentViewSet, basename='comment_v1')
 
 

@@ -8,11 +8,11 @@ from rest_framework_simplejwt.tokens import AccessToken
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 
 from api.filters import TitleFilter
-from api.permissions import IsAdminOrReadOnly, IsAdmin
+from api.permissions import IsAdminOrReadOnly, IsAdmin, IsAuthenticatedForPut
 from api.serializers import (
     CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer,
     ReviewSerializer, CommentSerializer
@@ -159,7 +159,7 @@ class TitleViewSet(viewsets.ModelViewSet):
 
 class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    permission_classes = (IsAuthenticatedForPut, )
 
     def get_queryset(self):
         return self.get_title(self.kwargs['title_id']).reviews.all()
@@ -169,37 +169,71 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         title = self.get_title(self.kwargs['title_id'])
-        serializer.save(author=self.request.user, title=title)
+        user = self.request.user
+        if Review.objects.filter(author=user, title_id=title).exists():
+            raise ValidationError({'detail': 'Отзыв уже существует.'})
+#        serializer.save(author=self.request.user, title_id=title)
+        else:
+            serializer.save(author=self.request.user, title_id=title)
 
-    def perform_update(self, serializer):
-        if self.get_object().author != self.request.user:
-            raise PermissionDenied('У Вас нет прав, '
-                                   'на редактирование.')
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if (instance.author != self.request.user
+                and not self.request.user.is_moderator
+                and not self.request.user.is_admin):
+            return Response({'detail': 'You do not have permission to edit this comment.'}, status=403)
+        serializer = self.get_serializer(instance, data=self.request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
         super().perform_update(serializer)
+        return Response(serializer.data, status=200)
+    
+    def update(self, request, *args, **kwargs):
+        return Response({"detail": "Method 'PUT' not allowed."},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def perform_destroy(self, instance):
-        if instance.author != self.request.user:
+        if (instance.author != self.request.user
+                and not self.request.user.is_moderator
+                and not self.request.user.is_admin):
             raise PermissionDenied('У Вас нет прав, '
                                    'на удаление.')
         super().perform_destroy(instance)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
-    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    permission_classes = (IsAuthenticatedForPut, )
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+    def get_review(self, review_id):
+        return get_object_or_404(Review, pk=review_id)
 
-    def perform_update(self, serializer):
-        if self.get_object().author != self.request.user:
-            raise PermissionDenied('У Вас нет прав, '
-                                   'на редактирование этого комментария.')
-        super().perform_update(serializer)
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user,
+                        review_id=self.get_review(self.kwargs['review_id']))
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if (instance.author == self.request.user
+                or self.request.user.is_moderator
+                or self.request.user.is_admin):
+            serializer = self.get_serializer(instance,
+                                             data=self.request.data,
+                                             partial=True)
+            serializer.is_valid(raise_exception=True)
+            super().perform_update(serializer)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({'detail': 'Нет прав на редактирование комментария.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    def update(self, request, *args, **kwargs):
+        return Response({"detail": "Method 'PUT' not allowed."},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def perform_destroy(self, instance):
-        if instance.author != self.request.user:
+        if (instance.author != self.request.user
+                and not self.request.user.is_moderator
+                and not self.request.user.is_admin):
             raise PermissionDenied('У Вас нет прав, '
                                    'на удаление этого комментария.')
         super().perform_destroy(instance)
