@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from rest_framework.exceptions import ValidationError
 from rest_framework import serializers
 
 from reviews.models import Category, Genre, Title, Review, Comment
@@ -127,7 +126,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = '__all__'
-        read_only_fields = ('author', 'title_id', )
+        read_only_fields = ('author', 'title', )
 
 #        def create(self, validated_data):
 #            user = self.context['request'].user

@@ -1,6 +1,5 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from rest_framework.exceptions import ValidationError
 
 from users.models import User
 from reviews.validators import validate_year_release
@@ -95,8 +94,8 @@ class GenreTitle(models.Model):
 class Review(models.Model):
     """Модель отзыва на произведение."""
 
-    title_id = models.ForeignKey(Title, on_delete=models.CASCADE,
-                                 related_name='reviews')
+    title = models.ForeignKey(Title, on_delete=models.CASCADE,
+                              related_name='reviews')
     text = models.TextField()
     score = models.IntegerField(validators=[
         MinValueValidator(1),
@@ -108,11 +107,14 @@ class Review(models.Model):
         'Дата отзыва', auto_now_add=True
     )
 
-
     class Meta:
         ordering = ('pub_date',)
         verbose_name = 'Отзыв'
         verbose_name_plural = 'Отзывы'
+        constraints = [
+            models.UniqueConstraint(fields=['title', 'author'],
+                                    name='unique_review_title_author')
+        ]
 
     def __str__(self):
         return self.text

@@ -157,60 +157,7 @@ class TitleViewSet(viewsets.ModelViewSet):
         return TitleSerializer
 
 
-class ReviewViewSet(viewsets.ModelViewSet):
-    serializer_class = ReviewSerializer
-    permission_classes = (IsAuthenticatedForPut, )
-
-    def get_queryset(self):
-        return self.get_title(self.kwargs['title_id']).reviews.all()
-
-    def get_title(self, title_id):
-        return get_object_or_404(Title, pk=title_id)
-
-    def perform_create(self, serializer):
-        title_id = self.get_title(self.kwargs['title_id'])
-        user = self.request.user
-        if Review.objects.filter(author=user, title_id=title_id).exists():
-            raise ValidationError({'detail': 'Отзыв уже существует.'})
-        serializer.save(author=self.request.user, title_id=title_id)
-
-    def partial_update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if (instance.author != self.request.user
-                and not self.request.user.is_moderator
-                and not self.request.user.is_admin):
-            return Response({'detail': 'Нет прав на редактирование.'},
-                            status=status.HTTP_403_FORBIDDEN)
-        serializer = self.get_serializer(instance,
-                                         data=self.request.data,
-                                         partial=True)
-        serializer.is_valid(raise_exception=True)
-        super().perform_update(serializer)
-        return Response(serializer.data, status=200)
-
-    def update(self, request, *args, **kwargs):
-        return Response({"detail": "Метод PUT не разрешен."},
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def perform_destroy(self, instance):
-        if (instance.author != self.request.user
-                and not self.request.user.is_moderator
-                and not self.request.user.is_admin):
-            raise PermissionDenied('У Вас нет прав, на удаление.')
-        super().perform_destroy(instance)
-
-
-class CommentViewSet(viewsets.ModelViewSet):
-    permission_classes = (IsAuthenticatedForPut, )
-    queryset = Comment.objects.all()
-    serializer_class = CommentSerializer
-
-    def get_review(self, review_id):
-        return get_object_or_404(Review, pk=review_id)
-
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user,
-                        review_id=self.get_review(self.kwargs['review_id']))
+class ReviewCommentUpdateMixin:
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -236,3 +183,34 @@ class CommentViewSet(viewsets.ModelViewSet):
                 and not self.request.user.is_admin):
             raise PermissionDenied('У Вас нет прав, на удаление.')
         super().perform_destroy(instance)
+
+
+class ReviewViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = (IsAuthenticatedForPut, )
+
+    def get_queryset(self):
+        return self.get_title(self.kwargs['title']).reviews.all()
+
+    def get_title(self, title):
+        return get_object_or_404(Title, pk=title)
+
+    def perform_create(self, serializer):
+        title = self.get_title(self.kwargs['title'])
+        user = self.request.user
+        if Review.objects.filter(author=user, title=title).exists():
+            raise ValidationError({'detail': 'Отзыв уже существует.'})
+        serializer.save(author=self.request.user, title=title)
+
+
+class CommentViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticatedForPut, )
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+
+    def get_review(self, review_id):
+        return get_object_or_404(Review, pk=review_id)
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user,
+                        review_id=self.get_review(self.kwargs['review_id']))
