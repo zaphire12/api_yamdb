@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from rest_framework.exceptions import ValidationError
 
 from users.models import User
 from reviews.validators import validate_year_release
@@ -106,6 +107,7 @@ class Review(models.Model):
     pub_date = models.DateTimeField(
         'Дата отзыва', auto_now_add=True
     )
+
 
     class Meta:
         ordering = ('pub_date',)

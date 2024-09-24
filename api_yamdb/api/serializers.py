@@ -129,10 +129,10 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('author', 'title_id', )
 
-        def create(self, validated_data):
-            user = self.context['request'].user
-            validated_data['author'] = user
-            return super().create(validated_data)
+#        def create(self, validated_data):
+#            user = self.context['request'].user
+#            validated_data['author'] = user
+#            return super().create(validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
