@@ -25,12 +25,14 @@ class Test05ReviewAPI:
             user: user_client,
             moderator: moderator_client
         }
+        #print('---------------------',admin_client, author_map)
         reviews, titles = create_reviews(admin_client, author_map)
         new_data = {'text': 'new_text', 'score': 7}
-
+        #print('-----------------------', self.REVIEWS_URL_TEMPLATE.format(title_id=titles[0]['id']), '--------------------------')
         response = client.get(
             self.REVIEWS_URL_TEMPLATE.format(title_id=titles[0]['id'])
         )
+        #print('-----------------------', response.status_code, '--------------------------')
         assert response.status_code != HTTPStatus.NOT_FOUND, (
             f'Эндпоинт `{self.REVIEWS_URL_TEMPLATE}` не найден, проверьте '
             'настройки в *urls.py*.'

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.db.models import Avg
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
@@ -8,13 +9,17 @@ from rest_framework_simplejwt.tokens import AccessToken
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
 
 from api.filters import TitleFilter
-from api.permissions import IsAdminOrReadOnly, IsAdmin
+from api.permissions import IsAdminOrReadOnly, IsAdmin, IsAuthenticatedForPut
 from api.serializers import (
-    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer
+    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer,
+    ReviewSerializer, CommentSerializer
 )
-from reviews.models import Category, Genre, Title
+
+from reviews.models import Category, Genre, Title, Review, Comment
 from api.serializers import (UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
@@ -140,15 +145,74 @@ class GenreViewset(mixins.ListModelMixin,
 
 class TitleViewSet(viewsets.ModelViewSet):
     """Получаем/создаем/удаляем/редактируем произведение."""
-    queryset = Title.objects.all()
+    queryset = (Title.objects.order_by('id')
+                .annotate(rating=Avg('reviews__score')))
     serializer_class = TitleSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     http_method_names = ALLOWED_METHODS
 
-
     def get_serializer_class(self):
         if self.request.method == 'GET':
             return TitleGetSerializer
         return TitleSerializer
+
+
+class ReviewCommentUpdateMixin:
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if (instance.author == self.request.user
+                or self.request.user.is_moderator
+                or self.request.user.is_admin):
+            serializer = self.get_serializer(instance,
+                                             data=self.request.data,
+                                             partial=True)
+            serializer.is_valid(raise_exception=True)
+            super().perform_update(serializer)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({'detail': 'Нет прав на редактирование.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    def update(self, request, *args, **kwargs):
+        return Response({"detail": "Метод PUT не разрешен."},
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def perform_destroy(self, instance):
+        if (instance.author != self.request.user
+                and not self.request.user.is_moderator
+                and not self.request.user.is_admin):
+            raise PermissionDenied('У Вас нет прав, на удаление.')
+        super().perform_destroy(instance)
+
+
+class ReviewViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = (IsAuthenticatedForPut, )
+
+    def get_queryset(self):
+        return self.get_title(self.kwargs['title']).reviews.all()
+
+    def get_title(self, title):
+        return get_object_or_404(Title, pk=title)
+
+    def perform_create(self, serializer):
+        title = self.get_title(self.kwargs['title'])
+        user = self.request.user
+        if Review.objects.filter(author=user, title=title).exists():
+            raise ValidationError({'detail': 'Отзыв уже существует.'})
+        serializer.save(author=self.request.user, title=title)
+
+
+class CommentViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticatedForPut, )
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+
+    def get_review(self, review_id):
+        return get_object_or_404(Review, pk=review_id)
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user,
+                        review_id=self.get_review(self.kwargs['review_id']))
