@@ -1,6 +1,5 @@
 from http import HTTPStatus
 
-
 check_name_and_slug_patterns = (
     (
         {
@@ -152,11 +151,9 @@ def check_permissions(client, url, data, user_role, objects,
 
 def create_single_review(client, title_id, text, score):
     data = {'text': text, 'score': score}
-    print('----------', data, '||||', title_id, '|||')
     response = client.post(
         f'/api/v1/titles/{title_id}/reviews/', data=data
     )
-    print('----------', response.status_code, '|||||||')
     assert response.status_code == HTTPStatus.CREATED, (
         'Если POST-запрос авторизованного пользователя к '
         '`/api/v1/titles/{title_id}/reviews/` содержит корректные данные - '
@@ -251,7 +248,6 @@ def create_reviews(admin_client, authors_map):
     result = []
     text = 'review number {}'
     for idx, (user, user_client) in enumerate(authors_map.items(), 1):
-        print('!!!!!!!!!', user.username, '||', titles[0]['id'], '||', text.format(idx),'!!!!!!!!')
         response = create_single_review(
             user_client, titles[0]['id'], text.format(idx), 5
         )

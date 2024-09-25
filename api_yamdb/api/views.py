@@ -1,28 +1,26 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.db.models import Avg
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import AccessToken
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, mixins, viewsets
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.exceptions import PermissionDenied, ValidationError
-
 
 from api.filters import TitleFilter
-from api.permissions import IsAdminOrReadOnly, IsAdmin, IsAuthenticatedForPut
-from api.serializers import (
-    CategorySerializer, GenreSerializer, TitleGetSerializer, TitleSerializer,
-    ReviewSerializer, CommentSerializer
-)
-
-from reviews.models import Category, Genre, Title, Review, Comment
-from api.serializers import (UserCreateSerializer, UserSerializer,
+from api.mixins import ReviewCommentUpdateMixin
+from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthenticatedForPut
+from api.serializers import (CategorySerializer, CommentSerializer,
+                             GenreSerializer, ReviewSerializer,
+                             TitleGetSerializer, TitleSerializer,
+                             UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
+from constants import ALLOWED_METHODS
+from reviews.models import Category, Comment, Genre, Review, Title
 
 User = get_user_model()
 
@@ -114,9 +112,6 @@ class UserViewSet(mixins.ListModelMixin,
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-ALLOWED_METHODS = ['get', 'post', 'patch', 'delete']
-
-
 class CategorieViewSet(mixins.ListModelMixin,
                        mixins.CreateModelMixin,
                        mixins.DestroyModelMixin,
@@ -145,8 +140,11 @@ class GenreViewset(mixins.ListModelMixin,
 
 class TitleViewSet(viewsets.ModelViewSet):
     """Получаем/создаем/удаляем/редактируем произведение."""
-    queryset = (Title.objects.order_by('id')
-                .annotate(rating=Avg('reviews__score')))
+    queryset = Title.objects.order_by(
+        'id'
+    ).annotate(
+        rating=Avg('reviews__score')
+    )
     serializer_class = TitleSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     filter_backends = (DjangoFilterBackend,)
@@ -159,35 +157,7 @@ class TitleViewSet(viewsets.ModelViewSet):
         return TitleSerializer
 
 
-class ReviewCommentUpdateMixin:
-
-    def partial_update(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if (instance.author == self.request.user
-                or self.request.user.is_moderator
-                or self.request.user.is_admin):
-            serializer = self.get_serializer(instance,
-                                             data=self.request.data,
-                                             partial=True)
-            serializer.is_valid(raise_exception=True)
-            super().perform_update(serializer)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response({'detail': 'Нет прав на редактирование.'},
-                        status=status.HTTP_403_FORBIDDEN)
-
-    def update(self, request, *args, **kwargs):
-        return Response({"detail": "Метод PUT не разрешен."},
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def perform_destroy(self, instance):
-        if (instance.author != self.request.user
-                and not self.request.user.is_moderator
-                and not self.request.user.is_admin):
-            raise PermissionDenied('У Вас нет прав, на удаление.')
-        super().perform_destroy(instance)
-
-
-class ReviewViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
+class ReviewViewSet(ReviewCommentUpdateMixin):
     serializer_class = ReviewSerializer
     permission_classes = (IsAuthenticatedForPut, )
 
@@ -205,7 +175,7 @@ class ReviewViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
         serializer.save(author=self.request.user, title=title)
 
 
-class CommentViewSet(ReviewCommentUpdateMixin, viewsets.ModelViewSet):
+class CommentViewSet(ReviewCommentUpdateMixin):
     permission_classes = (IsAuthenticatedForPut, )
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer

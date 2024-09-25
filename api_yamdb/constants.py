@@ -1,0 +1,4 @@
+MAX_TEXT_LENGTH = 50
+MAX_NAME_LENGTH = 25
+CHAR_FIELD_MAX_LENGTH = 256
+ALLOWED_METHODS = ['get', 'post', 'patch', 'delete']
