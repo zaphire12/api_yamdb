@@ -1,4 +1,7 @@
+from django.contrib.auth import get_user_model
 from rest_framework import permissions
+
+User = get_user_model()
 
 
 class IsAdmin(permissions.BasePermission):
@@ -23,15 +26,38 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         )
 
 
-class IsAuthenticatedForPut(permissions.BasePermission):
-    """
-    Разрешает доступ для всех пользователей к GET запросам,
-    но требует аутентификации для PUT запросов.
-    """
+class IsAuthorOrReadOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return (request.method in permissions.SAFE_METHODS
+                or obj.author == request.user)
 
+
+class IsAuthorOrModeratorOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
+        if (request.method in permissions.SAFE_METHODS
+                or request.user.is_authenticated):
+            return True
+
+        return (request.user.is_authenticated
+                and (request.user.role
+                     in (User.MODERATOR, User.ADMIN)
+                     or request.user.is_superuser))
+
+    def has_object_permission(self, request, view, obj):
+
+        if (request.method in permissions.SAFE_METHODS
+                or obj.author == request.user):
+            return True
+        return (request.user.is_authenticated
+                and (request.user.role
+                     in (User.MODERATOR, User.ADMIN)
+                     or request.user.is_superuser))
+
+
+class IsAuthorModeratorAdminOrReadOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        elif request.method in ('patch', ) and request.user.is_moderator:
-            return True
-        return request.user and request.user.is_authenticated
+        return (obj.author == request.user
+                or request.user.is_moderator
+                or request.user.is_admin)

@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import get_object_or_404
 
 from reviews.models import Category, Comment, Genre, Review, Title
+from users.validators import validate_username
 
 User = get_user_model()
 
@@ -62,27 +65,19 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
-    username = serializers.RegexField(
-        regex=r'^[\w.@+-]+$',
+    username = serializers.CharField(
         max_length=150,
         required=True,
+        validators=[validate_username],
         error_messages={
-            'invalid': ('Имя пользователя может содержать '
-                        'только буквы, цифры и символы: . @ + - _'),
-        }
+            'unique': 'Пользователь с данным username уже существует.',
+        },
     )
     email = serializers.EmailField(max_length=254)
 
     class Meta:
         model = User
         fields = ('username', 'email')
-
-    def validate_username(self, username):
-        if username == 'me':
-            raise serializers.ValidationError(
-                'Имя пользователя не может быть me'
-            )
-        return username
 
     def validate(self, data):
         username = data.get('username')
@@ -104,7 +99,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
                 ' уже используется другим пользователем.'
             )
         if len(message_error) > 0:
-            raise serializers.ValidationError(message_error)
+            raise ValidationError(message_error)
         return data
 
 
@@ -128,6 +123,17 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = '__all__'
         read_only_fields = ('author', 'title', )
+
+    def validate(self, data):
+        request = self.context.get('request')
+        title_id = self.context.get('view').kwargs.get('title')
+        title = get_object_or_404(Title, pk=title_id)
+        if request.method == 'POST':
+            if Review.objects.filter(
+                    author=request.user, title=title
+            ).exists():
+                raise ValidationError('Отзыв уже существует.')
+        return data
 
 
 class CommentSerializer(serializers.ModelSerializer):

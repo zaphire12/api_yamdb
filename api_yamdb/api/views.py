@@ -4,34 +4,32 @@ from django.db.models import Avg
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 
+from api.constants import ALLOWED_METHODS
 from api.filters import TitleFilter
-from api.mixins import ReviewCommentUpdateMixin
-from api.permissions import IsAdmin, IsAdminOrReadOnly, IsAuthenticatedForPut
+from api.permissions import (IsAdmin, IsAdminOrReadOnly,
+                             IsAuthorModeratorAdminOrReadOnly,
+                             IsAuthorOrModeratorOrReadOnly)
 from api.serializers import (CategorySerializer, CommentSerializer,
                              GenreSerializer, ReviewSerializer,
                              TitleGetSerializer, TitleSerializer,
                              UserCreateSerializer, UserSerializer,
                              UserTokenSerializer)
 from api.utils import send_confirmation_code
-from constants import ALLOWED_METHODS
 from reviews.models import Category, Comment, Genre, Review, Title
 
 User = get_user_model()
 
 
-class UserCreateViewSet(mixins.CreateModelMixin,
-                        viewsets.GenericViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserCreateSerializer
+class UserCreateViewSet(APIView):
     permission_classes = (permissions.AllowAny,)
 
-    def create(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         serializer = UserCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         username = serializer.validated_data['username']
@@ -45,14 +43,11 @@ class UserCreateViewSet(mixins.CreateModelMixin,
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class UserTokenViewSet(mixins.CreateModelMixin,
-                       viewsets.GenericViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserTokenSerializer
+class UserTokenViewSet(APIView):
     permission_classes = (permissions.AllowAny,)
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+    def post(self, request, *args, **kwargs):
+        serializer = UserTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         username = serializer.validated_data.get('username')
         confirmation_code = serializer.validated_data.get('confirmation_code')
@@ -64,33 +59,14 @@ class UserTokenViewSet(mixins.CreateModelMixin,
         return Response(message, status=status.HTTP_200_OK)
 
 
-class UserViewSet(mixins.ListModelMixin,
-                  mixins.CreateModelMixin,
-                  viewsets.GenericViewSet):
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (IsAdmin,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
-
-    @action(
-        detail=False,
-        methods=['get', 'patch', 'delete'],
-        url_path=r'(?P<username>[\w.@+-]+)',
-        url_name='get_user'
-    )
-    def get_user_by_username(self, request, username):
-        user = get_object_or_404(User, username=username)
-        if request.method == 'PATCH':
-            serializer = UserSerializer(user, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        if request.method == 'DELETE':
-            user.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        serializer = UserSerializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    lookup_field = 'username'
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     @action(
         detail=False,
@@ -125,7 +101,7 @@ class CategorieViewSet(mixins.ListModelMixin,
     lookup_field = 'slug'
 
 
-class GenreViewset(mixins.ListModelMixin,
+class GenreViewSet(mixins.ListModelMixin,
                    mixins.CreateModelMixin,
                    mixins.DestroyModelMixin,
                    viewsets.GenericViewSet):
@@ -157,9 +133,13 @@ class TitleViewSet(viewsets.ModelViewSet):
         return TitleSerializer
 
 
-class ReviewViewSet(ReviewCommentUpdateMixin):
+class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
-    permission_classes = (IsAuthenticatedForPut, )
+    permission_classes = (
+        IsAuthenticatedOrReadOnly,
+        IsAuthorModeratorAdminOrReadOnly
+    )
+    http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_queryset(self):
         return self.get_title(self.kwargs['title']).reviews.all()
@@ -169,16 +149,14 @@ class ReviewViewSet(ReviewCommentUpdateMixin):
 
     def perform_create(self, serializer):
         title = self.get_title(self.kwargs['title'])
-        user = self.request.user
-        if Review.objects.filter(author=user, title=title).exists():
-            raise ValidationError({'detail': 'Отзыв уже существует.'})
         serializer.save(author=self.request.user, title=title)
 
 
-class CommentViewSet(ReviewCommentUpdateMixin):
-    permission_classes = (IsAuthenticatedForPut, )
+class CommentViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthorOrModeratorOrReadOnly, )
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+    http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_review(self, review_id):
         return get_object_or_404(Review, pk=review_id)
