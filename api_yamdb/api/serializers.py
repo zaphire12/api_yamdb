@@ -30,7 +30,9 @@ class TitleGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Title
-        fields = ('id', 'name', 'year', 'description', 'genre', 'category', 'rating')
+        fields = ('id', 'name', 'year',
+                  'description', 'genre', 'category',
+                  'rating')
 
 
 class TitleSerializer(serializers.ModelSerializer):
@@ -50,9 +52,10 @@ class TitleSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def validate_genre(self, value):
-        # Проверяем, что поле genre не пустое
         if not value:
-            raise serializers.ValidationError('Необходимо указать хотя бы один жанр.')
+            raise serializers.ValidationError(
+                'Необходимо указать хотя бы один жанр.'
+            )
         return value
 
 

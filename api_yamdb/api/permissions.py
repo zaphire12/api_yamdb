@@ -18,7 +18,6 @@ class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        # Для небезопасных методов проверяем, что пользователь аутентифицирован и является администратором
         return request.user.is_authenticated and request.user.is_admin
 
 
@@ -46,4 +45,3 @@ class IsAuthorOrModeratorOrReadOnly(permissions.BasePermission):
         return (request.user.is_authenticated
                 and (request.user.is_moderator or request.user.is_admin
                      or request.user.is_superuser))
-
