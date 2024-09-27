@@ -26,12 +26,11 @@ class GenreSerializer(serializers.ModelSerializer):
 class TitleGetSerializer(serializers.ModelSerializer):
     genre = GenreSerializer(many=True)
     category = CategorySerializer()
-    rating = serializers.FloatField(read_only=True)
-    # rating = serializers.IntegerField()
+    rating = serializers.IntegerField(default=None)
 
     class Meta:
         model = Title
-        fields = '__all__'
+        fields = ('id', 'name', 'year', 'description', 'genre', 'category', 'rating')
 
 
 class TitleSerializer(serializers.ModelSerializer):
@@ -49,6 +48,12 @@ class TitleSerializer(serializers.ModelSerializer):
     def to_representation(self, title):
         serializer = TitleGetSerializer(title)
         return serializer.data
+
+    def validate_genre(self, value):
+        # Проверяем, что поле genre не пустое
+        if not value:
+            raise serializers.ValidationError('Необходимо указать хотя бы один жанр.')
+        return value
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -121,7 +126,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = '__all__'
+        fields = ('id', 'text', 'author', 'score', 'pub_date')
         read_only_fields = ('author', 'title', )
 
     def validate(self, data):
@@ -142,5 +147,5 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = '__all__'
-        read_only_fields = ('author', 'review_id', )
+        fields = ('id', 'text', 'author', 'pub_date')
+        read_only_fields = ('review_id', )

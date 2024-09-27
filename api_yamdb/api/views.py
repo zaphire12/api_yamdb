@@ -13,7 +13,6 @@ from rest_framework_simplejwt.tokens import AccessToken
 from api.constants import ALLOWED_METHODS
 from api.filters import TitleFilter
 from api.permissions import (IsAdmin, IsAdminOrReadOnly,
-                             IsAuthorModeratorAdminOrReadOnly,
                              IsAuthorOrModeratorOrReadOnly)
 from api.serializers import (CategorySerializer, CommentSerializer,
                              GenreSerializer, ReviewSerializer,
@@ -95,7 +94,7 @@ class CategorieViewSet(mixins.ListModelMixin,
     """Получаем/создаем/удаляем категорию."""
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
     lookup_field = 'slug'
@@ -108,7 +107,7 @@ class GenreViewSet(mixins.ListModelMixin,
     """Получаем/создаем/удаляем жанр."""
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
     lookup_field = 'slug'
@@ -122,7 +121,7 @@ class TitleViewSet(viewsets.ModelViewSet):
         rating=Avg('reviews__score')
     )
     serializer_class = TitleSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     http_method_names = ALLOWED_METHODS
@@ -137,7 +136,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = (
         IsAuthenticatedOrReadOnly,
-        IsAuthorModeratorAdminOrReadOnly
+        IsAuthorOrModeratorOrReadOnly
     )
     http_method_names = ['get', 'post', 'patch', 'delete']
 
@@ -158,9 +157,14 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     http_method_names = ['get', 'post', 'patch', 'delete']
 
-    def get_review(self, review_id):
-        return get_object_or_404(Review, pk=review_id)
+    def get_review(self):
+        title = get_object_or_404(Title, pk=self.kwargs['title'])
+        return get_object_or_404(Review, pk=self.kwargs['review_id'], title=title)
+
+    def get_queryset(self):
+        review = self.get_review()
+        return review.comments.all()
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user,
-                        review_id=self.get_review(self.kwargs['review_id']))
+                        review_id=self.get_review())

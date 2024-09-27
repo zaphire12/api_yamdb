@@ -55,7 +55,7 @@ class Title(models.Model):
         verbose_name='Год выпуска', validators=[validate_year_release]
     )
     description = models.TextField(
-        null=True, blank=True, verbose_name='Описание произведения'
+        blank=True, verbose_name='Описание произведения'
     )
     category = models.ForeignKey(
         Category,
